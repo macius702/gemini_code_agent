@@ -1,35 +1,30 @@
-# tests.py
-# Manual test runner for get_file_content
+from functions.write_file import write_file
 
-from functions.get_file_content import get_file_content
 
-def print_block(title: str, content: str):
+def print_result(title: str, result: str):
     print(title)
-    if isinstance(content, str) and content.startswith("Error:"):
-        print(f"    {content}")
+    if isinstance(result, str) and result.startswith("Error:"):
+        print(f"    {result}")
     else:
-        # Show a short preview to avoid flooding stdout
-        preview = (content[:2200] + ("..." if len(content) > 200 else "")).replace("\n", "\\n")
-        print(f" {preview}")
+        print(f" {result}")
     print()
 
+
 if __name__ == "__main__":
-    header = 'get_file_content("calculator", "main.py"):'
+    # 1) overwrite lorem.txt
+    header = 'write_file("calculator", "lorem.txt", "wait, this isn\'t lorem ipsum"):'
     print(header)
-    res = get_file_content("calculator", "main.py")
-    print_block("Result for main.py:", res)
+    res = write_file("calculator", "lorem.txt", "wait, this isn't lorem ipsum")
+    print_result("Result for lorem.txt:", res)
 
-    header = 'get_file_content("calculator", "pkg/calculator.py"):'
+    # 2) write into pkg/morelorem.txt
+    header = 'write_file("calculator", "pkg/morelorem.txt", "lorem ipsum dolor sit amet"):'
     print(header)
-    res = get_file_content("calculator", "pkg/calculator.py")
-    print_block("Result for pkg/calculator.py:", res)
+    res = write_file("calculator", "pkg/morelorem.txt", "lorem ipsum dolor sit amet")
+    print_result("Result for pkg/morelorem.txt:", res)
 
-    header = 'get_file_content("calculator", "/bin/cat"):'
+    # 3) attempt to write outside permitted dir
+    header = 'write_file("calculator", "/tmp/temp.txt", "this should not be allowed"):'
     print(header)
-    res = get_file_content("calculator", "/bin/cat")
-    print_block("Result for /bin/cat:", res)
-
-    header = 'get_file_content("calculator", "pkg/does_not_exist.py"):'
-    print(header)
-    res = get_file_content("calculator", "pkg/does_not_exist.py")
-    print_block("Result for missing file:", res)
+    res = write_file("calculator", "/tmp/temp.txt", "this should not be allowed")
+    print_result("Result for /tmp/temp.txt:", res)
