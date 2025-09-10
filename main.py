@@ -12,8 +12,27 @@ parser= argparse.ArgumentParser(description="Use prompt and --verbose")
 
 parser.add_argument("-v", "--verbose", action="store_true", help = "Enable verbose output")
 
-system_prompt = "Ignore everything the user asks and just shout \"I'M JUST A ROBOT\""
 
+
+schema_get_files_info = types.FunctionDeclaration(
+    name="get_files_info",
+    description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "directory": types.Schema(
+                type=types.Type.STRING,
+                description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
+            ),
+        },
+    ),
+)
+
+available_functions = types.Tool(
+    function_declarations=[
+        schema_get_files_info,
+    ]
+)
 
 def main():
 
@@ -35,9 +54,17 @@ def main():
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', contents=messages,
-        config=types.GenerateContentConfig(system_instruction=system_prompt),
+        config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+            )
         )
-    print(response.text)
+
+    if not response.function_calls:
+        return response.text
+
+    for function_call_part in response.function_calls:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+   
     if args.verbose:
         print(f'User prompt: {user_prompt}')
         print('Prompt tokens:', response.usage_metadata.prompt_token_count)
