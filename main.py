@@ -161,7 +161,7 @@ def main():
         print('Error: Prompt argument needed')
         sys.exit(1)
 
-    user_prompt = " ".join(sys.argv[1:])
+    user_prompt = " ".join(rest)
 
     messages = [ types.Content(role='user', parts = [types.Part(text=user_prompt)])]
 
