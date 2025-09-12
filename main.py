@@ -165,9 +165,6 @@ def main():
 
     messages = [ types.Content(role='user', parts = [types.Part(text=user_prompt)])]
 
-    # print(f'{messages=}')
-
-
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
@@ -182,9 +179,15 @@ def main():
         return response.text
 
     for function_call_part in response.function_calls:
-        result = call_function(function_call_part, verbose=args.verbose)
+        result_content = call_function(function_call_part, verbose=args.verbose)
+
+        if not result_content.parts or not hasattr(result_content.parts[0], "function_response"):
+            raise RuntimeError("Fatal: function call did not return a function_response")
+
+        function_response = result_content.parts[0].function_response.response
+
         if args.verbose:
-            print("Result:", result)
+            print("Function call result:", function_response)
    
     if args.verbose:
         print(f'User prompt: {user_prompt}')
