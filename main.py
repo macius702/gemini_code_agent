@@ -95,11 +95,34 @@ available_functions = types.Tool(
     ]
 )
 
+# Import actual implementations
+from functions.get_files_info import get_files_info
+from functions.get_file_content import get_file_content
+from functions.run_python_file import run_python_file
+from functions.write_file import write_file
+
+
 def call_function(function_call_part, verbose=False):
+    args = dict(function_call_part.args or {})
+    args["working_directory"] = "./calculator"
+
     if verbose:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+        print(f"Calling function: {function_call_part.name}({args})")
     else:
         print(f" - Calling function: {function_call_part.name}")
+
+    if function_call_part.name == "get_files_info":
+        result = get_files_info(**args)
+    elif function_call_part.name == "get_file_content":
+        result = get_file_content(**args)
+    elif function_call_part.name == "run_python_file":
+        result = run_python_file(**args)
+    elif function_call_part.name == "write_file":
+        result = write_file(**args)
+    else:
+        raise ValueError(f"Unknown function name: {function_call_part.name}")
+
+    return result
 
 def main():
 
@@ -130,7 +153,9 @@ def main():
         return response.text
 
     for function_call_part in response.function_calls:
-        call_function(function_call_part, verbose=args.verbose)
+        result = call_function(function_call_part, verbose=args.verbose)
+        if args.verbose:
+            print("Result:", result)
    
     if args.verbose:
         print(f'User prompt: {user_prompt}')
