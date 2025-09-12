@@ -111,18 +111,47 @@ def call_function(function_call_part, verbose=False):
     else:
         print(f" - Calling function: {function_call_part.name}")
 
-    if function_call_part.name == "get_files_info":
-        result = get_files_info(**args)
-    elif function_call_part.name == "get_file_content":
-        result = get_file_content(**args)
-    elif function_call_part.name == "run_python_file":
-        result = run_python_file(**args)
-    elif function_call_part.name == "write_file":
-        result = write_file(**args)
-    else:
-        raise ValueError(f"Unknown function name: {function_call_part.name}")
+    function_name = function_call_part.name
 
-    return result
+    try:
+        if function_name == "get_files_info":
+            function_result = get_files_info(**args)
+        elif function_name == "get_file_content":
+            function_result = get_file_content(**args)
+        elif function_name == "run_python_file":
+            function_result = run_python_file(**args)
+        elif function_name == "write_file":
+            function_result = write_file(**args)
+        else:
+            return types.Content(
+                role="tool",
+                parts=[
+                    types.Part.from_function_response(
+                        name=function_name,
+                        response={"error": f"Unknown function: {function_name}"},
+                    )
+                ],
+            )
+    except Exception as e:
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                    name=function_name,
+                    response={"error": str(e)},
+                )
+            ],
+        )
+
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_name,
+                response={"result": function_result},
+            )
+        ],
+    )
 
 def main():
 
