@@ -95,6 +95,12 @@ available_functions = types.Tool(
     ]
 )
 
+def call_function(function_call_part, verbose=False):
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+
 def main():
 
     args, rest = parser.parse_known_args()
@@ -124,7 +130,7 @@ def main():
         return response.text
 
     for function_call_part in response.function_calls:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+        call_function(function_call_part, verbose=args.verbose)
    
     if args.verbose:
         print(f'User prompt: {user_prompt}')
