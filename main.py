@@ -154,7 +154,6 @@ def call_function(function_call_part, verbose=False):
     )
 
 def main():
-
     args, rest = parser.parse_known_args()
 
     if not rest:
@@ -163,36 +162,94 @@ def main():
 
     user_prompt = " ".join(rest)
 
-    messages = [ types.Content(role='user', parts = [types.Part(text=user_prompt)])]
+    # Initialize conversation with user's message
+    messages = [types.Content(role='user', parts=[types.Part(text=user_prompt)])]
 
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model='gemini-2.0-flash-001', contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions], system_instruction=system_prompt
-            )
-        )
 
-    if not response.function_calls:
-        return response.text
+    max_steps = 20
+    step = 0
 
-    for function_call_part in response.function_calls:
-        result_content = call_function(function_call_part, verbose=args.verbose)
-
-        if not result_content.parts or not hasattr(result_content.parts[0], "function_response"):
-            raise RuntimeError("Fatal: function call did not return a function_response")
-
-        function_response = result_content.parts[0].function_response.response
-
+    while step < max_steps:
+        step += 1
         if args.verbose:
-            print("Function call result:", function_response)
-   
+            print(f"\n--- Agent step {step} ---")
+
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.0-flash-001',
+                contents=messages,
+                config=types.GenerateContentConfig(
+                    tools=[available_functions],
+                    system_instruction=system_prompt,
+                ),
+            )
+
+            # Append model candidates to the conversation so the next call has full context
+            try:
+                for cand in (response.candidates or []):
+                    if getattr(cand, "content", None):
+                        messages.append(cand.content)
+            except Exception:
+                # If the SDK shape differs, fall back to the top-level content if present
+                if getattr(response, "content", None):
+                    messages.append(response.content)
+
+            # Prefer executing function calls if present (even if text also exists)
+            function_calls = list(getattr(response, "function_calls", []) or [])
+            for function_call_part in function_calls:
+                result_content = call_function(function_call_part, verbose=args.verbose)
+
+                if not result_content.parts or not hasattr(result_content.parts[0], "function_response"):
+                    raise RuntimeError("Fatal: function call did not return a function_response")
+
+                function_response = result_content.parts[0].function_response.response
+
+                if args.verbose:
+                    print("Function call result:", function_response)
+
+                # Feed tool result back into the conversation as a user message so the model can continue
+                messages.append(
+                    types.Content(
+                        role='user',
+                        parts=[
+                            types.Part.from_function_response(
+                                name=function_call_part.name,
+                                response=function_response,
+                            )
+                        ],
+                )
+                )
+
+            # If there were any function calls, continue to next iteration to let the model react
+            if function_calls:
+                continue
+
+            # Otherwise, if model produced final text, print and stop looping
+            final_text = getattr(response, "text", "") or ""
+            if final_text:
+                print(final_text)
+                # Token usage (verbose only)
+                if args.verbose and getattr(response, "usage_metadata", None):
+                    print('Prompt tokens:', response.usage_metadata.prompt_token_count)
+                    print('Response tokens:', response.usage_metadata.candidates_token_count)
+                break
+
+            # If there were no function calls and no text, nothing else to do
+            if not getattr(response, "function_calls", None) and not final_text:
+                if args.verbose:
+                    print("No function calls or final text; stopping.")
+                break
+
+        except Exception as e:
+            print(f"Error: {e}")
+            break
+
+    # If we get here, we hit the max step limit
     if args.verbose:
-        print(f'User prompt: {user_prompt}')
-        print('Prompt tokens:', response.usage_metadata.prompt_token_count)
-        print('Response tokens:', response.usage_metadata.candidates_token_count)
+        print(f"Reached max steps ({max_steps}) without a final answer.")
 
 if __name__ == "__main__":
     main()
