@@ -187,6 +187,26 @@ def main():
                 ),
             )
 
+            # In verbose mode, show the model's rationale/explanation text for this step
+            if args.verbose:
+                try:
+                    rationale_lines = []
+                    for cand in (getattr(response, "candidates", None) or []):
+                        content = getattr(cand, "content", None)
+                        if not content:
+                            continue
+                        for part in getattr(content, "parts", []) or []:
+                            txt = getattr(part, "text", None)
+                            if txt:
+                                rationale_lines.append(txt)
+                    if rationale_lines:
+                        print("Model rationale:")
+                        for line in rationale_lines:
+                            print(line)
+                except Exception:
+                    # Best effort only; ignore any SDK shape differences
+                    pass
+
             # Append model candidates to the conversation so the next call has full context
             try:
                 for cand in (response.candidates or []):
